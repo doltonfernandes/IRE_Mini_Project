@@ -74,3 +74,17 @@ class DataHolder():
 		if self.pageCnt % 1000 == 0:
 			print(self.pageCnt)
 		self.pageCnt += 1
+
+	def save(self, path1, path2):
+		with open(path1, 'w') as f:
+			all_keys = self.invertedIdx.keys()
+			all_keys = list(all_keys)
+			all_keys.sort()
+			for k in all_keys:
+				f.write(k + '-')
+				totalLen = len(self.invertedIdx[k]) - 1
+				for idx, d in enumerate(self.invertedIdx[k]):
+					if idx != totalLen:
+						f.write(d + '-')
+					else:
+						f.write(d + '\n')

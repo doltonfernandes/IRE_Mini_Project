@@ -63,9 +63,6 @@ class saxHandler(xml.sax.ContentHandler):
 			# Add remaining text to body
 			self.body_list.append(contentLower.replace('"', "").replace("'", "").replace("_", "") + '\n')
 
-if not os.path.isdir(sys.argv[2]):
-	os.mkdir(sys.argv[2])
-
 parser = xml.sax.make_parser()
 parser.setFeature(xml.sax.handler.feature_namespaces, 0)
 Handler = saxHandler()
@@ -73,3 +70,5 @@ parser.setContentHandler( Handler )
 
 holder = DataHolder()
 parser.parse(sys.argv[1])
+
+holder.save(sys.argv[2], sys.argv[3])
