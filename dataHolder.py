@@ -55,6 +55,7 @@ class DataHolder():
 			# Get link name
 			data = re.sub(r'http\S+', '', data)
 			data = '\n'.join([ i.split(']')[0] for i in data.split('\n') ])
+
 		# Tokenization
 		data = re.findall(r"[\w']{3,}", data)
 		# remove non english words like chinese
@@ -66,6 +67,7 @@ class DataHolder():
 		return data
 
 	def encodeKeys(self, counts, data):
+		data = list(set(data))
 		for k in data:
 			encoding = str(self.pageCnt)
 			for idx, c in enumerate(counts):

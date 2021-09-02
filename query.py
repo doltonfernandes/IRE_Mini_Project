@@ -1,6 +1,7 @@
 import sys
-from dataHolder import DataHolder
 import json
+import re
+from nltk.stem import PorterStemmer
 
 invertedIdxPath = sys.argv[1] + '/finalInvIdx.txt'
 query = sys.argv[2]
@@ -12,8 +13,6 @@ data = data.split('\n')[:-1]
 
 for t in data:
 	invertedIdx[t.split('-')[0]] = t.split('-')[1:]
-
-holder = DataHolder('', '')
 
 emptyQuery = {
 	"title": [],
@@ -43,14 +42,18 @@ def getDocIds(word, c):
 	return docIds
 
 ans = {}
+stemmer = PorterStemmer()
 if ':' not in query:
-	query = holder.cleanData('', query.lower())
+	query = re.findall(r"[\w']{1,}", query)
 	query = list(set(query))
 
 	for q in query:
 		ans[q] = emptyQuery
 		for k in ans[q].keys():
-			ans[q][k] = getDocIds(q, mapping[k])
+			try:
+				ans[q][k] = getDocIds(stemmer.stem(q.lower()), mapping[k])
+			except:
+				pass
 else:
 	queryFormatted = {}
 	for k in emptyQuery.keys():
@@ -58,7 +61,8 @@ else:
 			text = query.split(k[:1] + ':')[1]
 			if ':' in text:
 				text = text.split(':')[0][:-1]
-			text = holder.cleanData('', text.lower())
+			text = re.findall(r"[\w']{1,}", text)
+			text = list(set(text))
 			for w in text:
 				try:
 					queryFormatted[w].append(k)
@@ -68,6 +72,9 @@ else:
 	for w in queryFormatted.keys():
 		ans[w] = emptyQuery
 		for q in queryFormatted[w]:
-			ans[w][q] = getDocIds(w, mapping[q])
+			try:
+				ans[w][q] = getDocIds(stemmer.stem(w.lower()), mapping[q])
+			except:
+				pass
 
 print(json.dumps(ans, indent=4))
