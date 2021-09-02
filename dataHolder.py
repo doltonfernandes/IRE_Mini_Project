@@ -1,9 +1,13 @@
 import re
 from nltk.stem import PorterStemmer
 from collections import Counter
+import os
+from os import listdir
+from os.path import isfile, join
+import shutil
 
 class DataHolder():
-	def __init__(self):
+	def __init__(self, invertedIDXpath, statsPath):
 		self.stopwords = {'have', 'more', 'will', 'further', 'but', \
 						'this', 'her', 'myself', 'doing', 'didn', \
 						'between', 'should', 'herself', 'because', \
@@ -30,9 +34,17 @@ class DataHolder():
 						'wasn', 'was', 'haven', 'doesn', 'how', \
 						'any', 'she', 'all', 'needn', 'that', \
 						'into', 'than', 'once'}
+
 		self.stemmer = PorterStemmer()
 		self.pageCnt = 0
+		self.currBlock = 0
+		self.originalTokens = {}
 		self.invertedIdx = {}
+		self.invertedIDXpath = invertedIDXpath
+		self.statsPath = statsPath
+		self.currItems = 0
+		self.maxItems = 10000000
+		self.invertedTokensCnt = 0
 
 	def cleanData(self, key, data):
 		if key == "reference":
@@ -62,21 +74,32 @@ class DataHolder():
 				self.invertedIdx[k].append(encoding)
 			except:
 				self.invertedIdx[k] = [encoding]
+		self.currItems += len(data)
 
 	def insert(self, data):
 		counts = []
-		for k in data.keys():
+		for k in sorted(data.keys()):
 			counts.append(Counter(self.cleanData(k, data[k])))
 		all_keys = []
 		for c in counts:
 			all_keys += list(c.keys())
 		self.encodeKeys(counts, all_keys)
-		if self.pageCnt % 1000 == 0:
-			print(self.pageCnt)
-		self.pageCnt += 1
+		# if self.pageCnt % 1000 == 0:
+		# 	print(self.pageCnt)
 
-	def save(self, path1, path2):
-		with open(path1, 'w') as f:
+		self.pageCnt += 1
+		if self.currItems >= self.maxItems:
+			self.saveOne()
+
+	def hashTokens(self, data):
+		data = re.findall(r"[\w']{3,}", data)
+		for w in data:
+			self.originalTokens[w] = 1
+
+	def saveOne(self):
+		if self.currItems == 0:
+			return
+		with open(self.invertedIDXpath + '/Tempfiles/' + str(self.currBlock) + '.txt', 'w') as f:
 			all_keys = self.invertedIdx.keys()
 			all_keys = list(all_keys)
 			all_keys.sort()
@@ -88,3 +111,49 @@ class DataHolder():
 						f.write(d + '-')
 					else:
 						f.write(d + '\n')
+
+		self.invertedIdx = {}
+		self.currItems = 0
+		self.currBlock += 1
+
+	def saveStats(self):
+		with open(self.statsPath, 'w') as f:
+			f.write(str(len(self.originalTokens)) + '\n')
+			f.write(str(self.invertedTokensCnt) + '\n')
+
+	def getCombined(self, pointers, lists):
+		lengths = [ len(l) - 1 for l in lists ]
+		toRet = ""
+		while not all(k == -1 for k in pointers):
+			minW = min([ lists[idx][i].split('a')[0] for idx, i in enumerate(pointers) if i != -1 ])
+			for idx, i in enumerate(pointers):
+				if i != -1 and lists[idx][i].split('a')[0] == minW:
+					toRet += '-' + lists[idx][i]
+					if i == lengths[idx]:
+						pointers[idx] = -1
+					else:
+						pointers[idx] += 1
+					break
+		return toRet
+
+	def mergeFiles(self):
+		files = [ f for f in listdir(self.invertedIDXpath + '/Tempfiles/') if isfile(join(self.invertedIDXpath + '/Tempfiles/', f)) ]
+		files = [ open(join(self.invertedIDXpath + '/Tempfiles/', f), "r") for f in files ]
+		currLines = [ f.readline().strip() for f in files ]
+
+		with open(self.invertedIDXpath + '/finalInvIdx.txt', 'w') as f:
+			while not all(not l for l in currLines):
+				minW = min([ i.split('-')[0] for i in currLines if i ])
+				toWrite = minW
+				pointers = [ 0 if f.split('-')[0] == minW else -1 for f in currLines ]
+				lists = [ f.split('-')[1:] if f else [] for f in currLines ]
+				toWrite += self.getCombined(pointers, lists)
+				f.write(toWrite + '\n')
+				self.invertedTokensCnt += 1
+				currLines = [ f.readline().strip() if f else f for f in files ]
+
+		for f in files:
+			f.close()
+
+		if os.path.isdir(self.invertedIDXpath + '/Tempfiles'):
+		    shutil.rmtree(self.invertedIDXpath + '/Tempfiles')

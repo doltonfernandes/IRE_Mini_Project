@@ -21,6 +21,7 @@ class saxHandler(xml.sax.ContentHandler):
 		# Since body is too big, we store strings in a list and then
 		# concatenate using join(), which is much faster than +=
 		self.body_list = []
+		self.infoboxCnt = 0
 
 	# Call when an element starts
 	def startElement(self, tag, attributes):
@@ -38,15 +39,23 @@ class saxHandler(xml.sax.ContentHandler):
 
 	# Call when a character is read
 	def characters(self, content):
+		contentLower = content.lower()
+		holder.hashTokens(contentLower)
 		if self.currTag == 'title':
-			self.data['title'] += content.lower().replace('"', "").replace("'", "").replace("_", "")
+			self.data['title'] += contentLower.replace('"', "").replace("'", "").replace("_", "")
 			return
 
 		if self.currTag == 'text':
-			contentLower = content.lower()
 			# Check if infobox exists
-			if re.search(r"{{infobox", contentLower):
-				self.data['infobox'] += contentLower.replace('infobox', '').replace('"', "").replace("'", "").replace("_", "") + '\n'
+			if self.infoboxCnt > 0 or re.search(r"{{infobox", contentLower):
+				if contentLower.strip() == '}}':
+					self.infoboxCnt = 0
+					return
+				if self.infoboxCnt == 0:
+					self.data['infobox'] += contentLower.replace('infobox', '').replace('"', "").replace("'", "").replace("_", "") + '\n'
+				else:
+					self.data['infobox'] += contentLower.replace('"', "").replace("'", "").replace("_", "") + '\n'
+				self.infoboxCnt = 1
 				return
 			# Check if category exists
 			if re.search(r'\[\[category:', contentLower):
@@ -66,9 +75,16 @@ class saxHandler(xml.sax.ContentHandler):
 parser = xml.sax.make_parser()
 parser.setFeature(xml.sax.handler.feature_namespaces, 0)
 Handler = saxHandler()
-parser.setContentHandler( Handler )
+parser.setContentHandler(Handler)
 
-holder = DataHolder()
+if not os.path.exists(sys.argv[2]):
+	os.makedirs(sys.argv[2])
+
+if not os.path.exists(sys.argv[2] + '/Tempfiles'):
+	os.makedirs(sys.argv[2] + '/Tempfiles')
+
+holder = DataHolder(sys.argv[2], sys.argv[3])
 parser.parse(sys.argv[1])
-
-holder.save(sys.argv[2], sys.argv[3])
+holder.saveOne()
+holder.mergeFiles()
+holder.saveStats()
