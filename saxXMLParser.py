@@ -40,8 +40,8 @@ class saxHandler(xml.sax.ContentHandler):
 	# Call when a character is read
 	def characters(self, content):
 		contentLower = content.lower()
-		holder.hashTokens(contentLower)
 		if self.currTag == 'title':
+			# Check if title exists
 			self.data['title'] += contentLower.replace('"', "").replace("'", "").replace("_", "")
 			return
 
@@ -87,4 +87,5 @@ holder = DataHolder(sys.argv[2], sys.argv[3])
 parser.parse(sys.argv[1])
 holder.saveOne()
 holder.mergeFiles()
+holder.splitInvIdx()
 holder.saveStats()

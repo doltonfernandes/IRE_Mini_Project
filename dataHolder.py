@@ -38,13 +38,13 @@ class DataHolder():
 		self.stemmer = PorterStemmer()
 		self.pageCnt = 0
 		self.currBlock = 0
-		self.originalTokens = {}
 		self.invertedIdx = {}
 		self.invertedIDXpath = invertedIDXpath
 		self.statsPath = statsPath
 		self.currItems = 0
-		self.maxItems = 10000000
+		self.maxItems = 1000000
 		self.invertedTokensCnt = 0
+		self.maxTokensInFile = 100000
 
 	def cleanData(self, key, data):
 		if key == "reference":
@@ -86,17 +86,12 @@ class DataHolder():
 		for c in counts:
 			all_keys += list(c.keys())
 		self.encodeKeys(counts, all_keys)
-		# if self.pageCnt % 1000 == 0:
-		# 	print(self.pageCnt)
+		if self.pageCnt % 1000 == 0:
+			print(self.pageCnt)
 
 		self.pageCnt += 1
 		if self.currItems >= self.maxItems:
 			self.saveOne()
-
-	def hashTokens(self, data):
-		data = re.findall(r"[\w']{3,}", data)
-		for w in data:
-			self.originalTokens[w] = 1
 
 	def saveOne(self):
 		if self.currItems == 0:
@@ -118,9 +113,15 @@ class DataHolder():
 		self.currItems = 0
 		self.currBlock += 1
 
+	def getDirectorySizeGB(self, filePath):
+		if not os.path.isdir(filePath):
+			return 0
+		return sum(os.path.getsize(os.path.join(filePath, f)) for f in os.listdir(filePath) if os.path.isfile(os.path.join(filePath, f))) / 1000000000
+
 	def saveStats(self):
 		with open(self.statsPath, 'w') as f:
-			f.write(str(len(self.originalTokens)) + '\n')
+			f.write("%.2f\n" % self.getDirectorySizeGB(self.invertedIDXpath))
+			f.write(str(len(os.listdir(self.invertedIDXpath))) + '\n')
 			f.write(str(self.invertedTokensCnt) + '\n')
 
 	def getCombined(self, pointers, lists):
@@ -159,3 +160,37 @@ class DataHolder():
 
 		if os.path.isdir(self.invertedIDXpath + '/Tempfiles'):
 		    shutil.rmtree(self.invertedIDXpath + '/Tempfiles')
+
+	def splitInvIdx(self):
+
+		file = open(self.invertedIDXpath + '/finalInvIdx.txt', 'r')
+		line = file.readline()
+
+		cnt = 0
+		startToken = ""
+		endToken = ""
+		outFile = open(self.invertedIDXpath + '/tmp.txt', 'w')
+		while line != "":
+			endToken = line.split('-')[0]
+			if startToken == "":
+				startToken = endToken
+			cnt += 1;
+			outFile.write(line)
+			if cnt == self.maxTokensInFile:
+				outFile.close()
+				os.rename(self.invertedIDXpath + '/tmp.txt', self.invertedIDXpath + '/' + startToken + '_' + endToken + '.txt')
+				startToken = ""
+				endToken = ""
+				cnt = 0
+				outFile = open(self.invertedIDXpath + '/tmp.txt', 'w')
+			line = file.readline()
+
+		file.close()
+		outFile.close()
+
+		if startToken != "":
+			os.rename(self.invertedIDXpath + '/tmp.txt', self.invertedIDXpath + '/' + startToken + '_' + endToken + '.txt')
+		else:
+			os.remove(self.invertedIDXpath + '/tmp.txt')
+		
+		os.remove(self.invertedIDXpath + '/finalInvIdx.txt')
