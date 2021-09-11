@@ -21,7 +21,7 @@ class saxHandler(xml.sax.ContentHandler):
 		# Since body is too big, we store strings in a list and then
 		# concatenate using join(), which is much faster than +=
 		self.body_list = []
-		self.infoboxCnt = 0
+		self.inInfobox = 0
 
 	# Call when an element starts
 	def startElement(self, tag, attributes):
@@ -39,7 +39,7 @@ class saxHandler(xml.sax.ContentHandler):
 
 	# Call when a character is read
 	def characters(self, content):
-		contentLower = content.lower()
+		contentLower = content.lower().strip()
 		if self.currTag == 'title':
 			# Check if title exists
 			self.data['title'] += contentLower.replace('"', "").replace("'", "").replace("_", "")
@@ -47,15 +47,15 @@ class saxHandler(xml.sax.ContentHandler):
 
 		if self.currTag == 'text':
 			# Check if infobox exists
-			if self.infoboxCnt > 0 or re.search(r"{{infobox", contentLower):
+			if self.inInfobox > 0 or re.search(r"{{infobox", contentLower):
 				if contentLower.strip() == '}}':
-					self.infoboxCnt = 0
+					self.inInfobox = 0
 					return
-				if self.infoboxCnt == 0:
+				if self.inInfobox == 0:
 					self.data['infobox'] += contentLower.replace('infobox', '').replace('"', "").replace("'", "").replace("_", "") + '\n'
 				else:
 					self.data['infobox'] += contentLower.replace('"', "").replace("'", "").replace("_", "") + '\n'
-				self.infoboxCnt = 1
+				self.inInfobox = 1
 				return
 			# Check if category exists
 			if re.search(r'\[\[category:', contentLower):
@@ -65,7 +65,7 @@ class saxHandler(xml.sax.ContentHandler):
 			if re.search(r'{{cite', contentLower):
 				self.data['reference'] += contentLower.replace(r'{{cite', '').replace('"', "").replace("'", "").replace("_", "") + '\n'
 				return
-			# Check if external exists
+			# Check if external link exists
 			if (contentLower.startswith('* [') or contentLower.startswith('*[')) and (re.search(r'http', contentLower) or re.search(r'www', contentLower)):
 				self.data['link'] += contentLower.replace('"', "").replace("'", "").replace("_", "") + '\n'
 				return

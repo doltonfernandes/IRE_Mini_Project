@@ -42,9 +42,15 @@ class DataHolder():
 		self.invertedIDXpath = invertedIDXpath
 		self.statsPath = statsPath
 		self.currItems = 0
-		self.maxItems = 1000000
+		self.maxItems = 10000000
 		self.invertedTokensCnt = 0
-		self.maxTokensInFile = 100000
+		self.maxTokensInFile = 500000
+
+	def isLowerDigit(self, w):
+		for c in w:
+			if not ((ord(c) >= 97 and ord(c) <= 122) or ((ord(c) >= 48 and ord(c) <= 57))):
+				return False
+		return True
 
 	def cleanData(self, key, data):
 		if key == "reference":
@@ -59,7 +65,7 @@ class DataHolder():
 		# Tokenization
 		data = re.findall(r"[\w']{3,}", data)
 		# remove non english words like chinese
-		data = [ w for w in data if ord(w[0]) < 122 and ord(w[1]) < 122 and ord(w[2]) < 122 ]
+		data = [ w for w in data if self.isLowerDigit(w) ]
 		# Stop words removal
 		data = [w for w in data if w not in self.stopwords]
 		# Stemming
@@ -86,7 +92,7 @@ class DataHolder():
 		for c in counts:
 			all_keys += list(c.keys())
 		self.encodeKeys(counts, all_keys)
-		if self.pageCnt % 1000 == 0:
+		if self.pageCnt % 100000 == 0:
 			print(self.pageCnt)
 
 		self.pageCnt += 1
@@ -124,21 +130,6 @@ class DataHolder():
 			f.write(str(len(os.listdir(self.invertedIDXpath))) + '\n')
 			f.write(str(self.invertedTokensCnt) + '\n')
 
-	def getCombined(self, pointers, lists):
-		lengths = [ len(l) - 1 for l in lists ]
-		toRet = ""
-		while not all(k == -1 for k in pointers):
-			minW = min([ lists[idx][i].split('a')[0] for idx, i in enumerate(pointers) if i != -1 ])
-			for idx, i in enumerate(pointers):
-				if i != -1 and lists[idx][i].split('a')[0] == minW:
-					toRet += '-' + lists[idx][i]
-					if i == lengths[idx]:
-						pointers[idx] = -1
-					else:
-						pointers[idx] += 1
-					break
-		return toRet
-
 	def mergeFiles(self):
 		files = [ f for f in listdir(self.invertedIDXpath + '/Tempfiles/') if isfile(join(self.invertedIDXpath + '/Tempfiles/', f)) ]
 		files = [ open(join(self.invertedIDXpath + '/Tempfiles/', f), "r") for f in files ]
@@ -147,13 +138,15 @@ class DataHolder():
 		with open(self.invertedIDXpath + '/finalInvIdx.txt', 'w') as f:
 			while not all(not l for l in currLines):
 				minW = min([ i.split('-')[0] for i in currLines if i ])
-				toWrite = minW
-				pointers = [ 0 if f.split('-')[0] == minW else -1 for f in currLines ]
-				lists = [ f.split('-')[1:] if f else [] for f in currLines ]
-				toWrite += self.getCombined(pointers, lists)
-				f.write(toWrite + '\n')
+				allDocIds = []
+				for idx, i in enumerate(currLines):
+					if i and i.split('-')[0] == minW:
+						allDocIds.extend(i.split('-')[1:])
+						currLines[idx] = files[idx].readline().strip()
+
+				allDocIds = sorted(allDocIds, key=lambda x: int(x.split('a')[0]))
+				f.write(minW + '-' + '-'.join(allDocIds) + '\n')
 				self.invertedTokensCnt += 1
-				currLines = [ f.readline().strip() if f else f for f in files ]
 
 		for f in files:
 			f.close()
