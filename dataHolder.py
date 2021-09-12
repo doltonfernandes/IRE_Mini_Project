@@ -44,7 +44,7 @@ class DataHolder():
 		self.currItems = 0
 		self.maxItems = 10000000
 		self.invertedTokensCnt = 0
-		self.maxTokensInFile = 500000
+		self.maxTokensInFile = 300000
 
 	def isLowerDigit(self, w):
 		for c in w:
