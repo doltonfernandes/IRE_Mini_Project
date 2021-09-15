@@ -1,18 +1,19 @@
-import sys
+import time
 import json
+import sys
 import re
+import os
 from nltk.stem import PorterStemmer
 
-invertedIdxPath = sys.argv[1] + '/finalInvIdx.txt'
+start = time.time()
+invertedIdxPath = sys.argv[1]
 query = sys.argv[2]
 
-invertedIdx = {}
-with open(invertedIdxPath, 'r') as f:
-	data = f.read()
-data = data.split('\n')[:-1]
-
-for t in data:
-	invertedIdx[t.split('-')[0]] = t.split('-')[1:]
+docIdTitleMap = {}
+with open(invertedIdxPath + '/titles.txt', 'r') as f:
+	for line in f:
+		lineSplitted = line.strip().split('-')
+		docIdTitleMap[int(lineSplitted[0])] = '-'.join(lineSplitted[1:])
 
 emptyQuery = {
 	"title": [],
@@ -27,19 +28,43 @@ mapping = {}
 for idx, i in enumerate(sorted(emptyQuery.keys())):
 	mapping[i] = chr(97 + idx)
 
-def getDocIds(word, c):
+def getDocIds(word, c, invertedIdx):
 	docIds = []
 	if c == 'f':
-		for d in invertedIdx[word]:
+		for d in invertedIdx:
 			if int(d.split('f')[1]) > 0:
 				docIds.append(int(d.split('a')[0]))
 		return docIds
 
-	for d in invertedIdx[word]:
+	for d in invertedIdx:
 		if int(d.split(c)[1].split(chr(ord(c) + 1))[0]) > 0:
 			docIds.append(int(d.split('a')[0]))
 
 	return docIds
+
+invertedIdxFiles = [ f for f in os.listdir(invertedIdxPath) if os.path.isfile(os.path.join(invertedIdxPath, f)) and f != 'titles.txt']
+
+def getInvIdxFileName(w):
+	for f in invertedIdxFiles:
+		lowerW = f.split('.')[0].split('_')[0]
+		upperW = f.split('.')[0].split('_')[1]
+		if w >= lowerW and w <= upperW:
+			return f
+	return ""
+
+def getInvertedIndex(w):
+	fileName = getInvIdxFileName(w)
+	if fileName == "":
+		return []
+
+	match = []
+	with open(invertedIdxPath + '/' + fileName, 'r') as f:
+		for line in f:
+			if line.split('-')[0] == w:
+				match = line.strip().split('-')[1:]
+				break
+
+	return match
 
 ans = {}
 stemmer = PorterStemmer()
@@ -48,10 +73,12 @@ if ':' not in query:
 	query = list(set(query))
 
 	for q in query:
-		ans[q] = emptyQuery
+		ans[q] = emptyQuery.copy()
+		stemmedWord = stemmer.stem(q.lower())
+		invertedIdx = getInvertedIndex(stemmedWord)
 		for k in ans[q].keys():
 			try:
-				ans[q][k] = getDocIds(stemmer.stem(q.lower()), mapping[k])
+				ans[q][k] = getDocIds(stemmedWord, mapping[k], invertedIdx)
 			except:
 				pass
 else:
@@ -70,11 +97,27 @@ else:
 					queryFormatted[w] = [k]
 
 	for w in queryFormatted.keys():
-		ans[w] = emptyQuery
+		ans[w] = emptyQuery.copy()
+		stemmedWord = stemmer.stem(w.lower())
+		invertedIdx = getInvertedIndex(stemmedWord)
 		for q in queryFormatted[w]:
 			try:
-				ans[w][q] = getDocIds(stemmer.stem(w.lower()), mapping[q])
+				ans[w][q] = getDocIds(stemmedWord, mapping[q], invertedIdx)
 			except:
 				pass
 
-print(json.dumps(ans, indent=4))
+for k in ans.keys():
+	alldocs = set()
+	for el in ans[k].keys():
+		for i in ans[k][el]:
+			alldocs.add(i)
+	ans[k] = list(alldocs)
+
+end = time.time()
+
+for k in ans.keys():
+	print(k, '---')
+	for idd in ans[k]:
+		print(str(idd) + ', ' + docIdTitleMap[idd])
+
+print(end - start)

@@ -22,6 +22,7 @@ class saxHandler(xml.sax.ContentHandler):
 		# concatenate using join(), which is much faster than +=
 		self.body_list = []
 		self.inInfobox = 0
+		self.rawTitle = ""
 
 	# Call when an element starts
 	def startElement(self, tag, attributes):
@@ -30,18 +31,20 @@ class saxHandler(xml.sax.ContentHandler):
 	# Call when an elements ends
 	def endElement(self, tag):
 		if tag == "page":
-			holder.insert(self.data)
+			holder.insert(self.data, self.rawTitle)
 			self.data['body'] = '\n'.join(self.body_list)
 			for k in self.data:
 				self.data[k] = ''
 			self.body_list = []
 			self.currTag = ""
+			self.rawTitle = ""
 
 	# Call when a character is read
 	def characters(self, content):
 		contentLower = content.lower().strip()
 		if self.currTag == 'title':
 			# Check if title exists
+			self.rawTitle += content
 			self.data['title'] += contentLower.replace('"', "").replace("'", "").replace("_", "")
 			return
 

@@ -44,7 +44,8 @@ class DataHolder():
 		self.currItems = 0
 		self.maxItems = 10000000
 		self.invertedTokensCnt = 0
-		self.maxTokensInFile = 300000
+		self.maxTokensInFile = 200000
+		self.titlesFile = open(self.invertedIDXpath + '/titles.txt', 'w')
 
 	def isLowerDigit(self, w):
 		for c in w:
@@ -84,7 +85,8 @@ class DataHolder():
 				self.invertedIdx[k] = [encoding]
 		self.currItems += len(data)
 
-	def insert(self, data):
+	def insert(self, data, title):
+		self.titlesFile.write(str(self.pageCnt) + '-' + title.strip() + "\n")
 		counts = []
 		for k in sorted(data.keys()):
 			counts.append(Counter(self.cleanData(k, data[k])))
@@ -131,6 +133,7 @@ class DataHolder():
 			f.write(str(self.invertedTokensCnt) + '\n')
 
 	def mergeFiles(self):
+		self.titlesFile.close()
 		files = [ f for f in listdir(self.invertedIDXpath + '/Tempfiles/') if isfile(join(self.invertedIDXpath + '/Tempfiles/', f)) ]
 		files = [ open(join(self.invertedIDXpath + '/Tempfiles/', f), "r") for f in files ]
 		currLines = [ f.readline().strip() for f in files ]
@@ -148,6 +151,7 @@ class DataHolder():
 				f.write(minW + '-' + '-'.join(allDocIds) + '\n')
 				self.invertedTokensCnt += 1
 
+		f.close()
 		for f in files:
 			f.close()
 
