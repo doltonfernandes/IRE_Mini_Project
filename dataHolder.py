@@ -44,7 +44,6 @@ class DataHolder():
 		self.currItems = 0
 		self.maxItems = 10000000
 		self.invertedTokensCnt = 0
-		self.maxTokensInFile = 200000
 		self.titlesFile = open(self.invertedIDXpath + '/titles.txt', 'w')
 
 	def isLowerDigit(self, w):
@@ -160,6 +159,41 @@ class DataHolder():
 
 	def splitInvIdx(self):
 
+		# split title file
+		file = open(self.invertedIDXpath + '/titles.txt', 'r')
+		line = file.readline()
+
+		cnt = 0
+		startToken = ""
+		endToken = ""
+		outFile = open(self.invertedIDXpath + '/tmp.txt', 'w')
+		while line != "":
+			endToken = line.split('-')[0]
+			if startToken == "":
+				startToken = endToken
+			cnt += 1;
+			outFile.write(line)
+			# If size exceeds 50mb
+			if os.path.getsize(self.invertedIDXpath + '/tmp.txt') >= 50*1000000:
+				outFile.close()
+				os.rename(self.invertedIDXpath + '/tmp.txt', self.invertedIDXpath + '/titles_' + startToken + '_' + endToken + '.txt')
+				startToken = ""
+				endToken = ""
+				cnt = 0
+				outFile = open(self.invertedIDXpath + '/tmp.txt', 'w')
+			line = file.readline()
+
+		file.close()
+		outFile.close()
+
+		if startToken != "":
+			os.rename(self.invertedIDXpath + '/tmp.txt', self.invertedIDXpath + '/titles_' + startToken + '_' + endToken + '.txt')
+		else:
+			os.remove(self.invertedIDXpath + '/tmp.txt')
+		
+		os.remove(self.invertedIDXpath + '/titles.txt')
+
+		# split inv index file
 		file = open(self.invertedIDXpath + '/finalInvIdx.txt', 'r')
 		line = file.readline()
 
@@ -173,7 +207,8 @@ class DataHolder():
 				startToken = endToken
 			cnt += 1;
 			outFile.write(line)
-			if cnt == self.maxTokensInFile:
+			# If size exceeds 50mb
+			if os.path.getsize(self.invertedIDXpath + '/tmp.txt') >= 50*1000000:
 				outFile.close()
 				os.rename(self.invertedIDXpath + '/tmp.txt', self.invertedIDXpath + '/' + startToken + '_' + endToken + '.txt')
 				startToken = ""
