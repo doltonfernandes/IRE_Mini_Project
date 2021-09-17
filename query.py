@@ -4,6 +4,7 @@ import sys
 import json
 import time
 import math
+import linecache as lc
 from nltk.stem import PorterStemmer
 from collections import defaultdict
 
@@ -69,8 +70,6 @@ def getInvertedIndex(w):
 
 ans = {}
 stemmer = PorterStemmer()
-# cache for posting list
-postingListCache = {}
 if ':' not in query:
 	# If plain query
 	query = re.findall(r"[\w']{1,}", query)
@@ -80,7 +79,6 @@ if ':' not in query:
 		ans[q] = emptyQuery.copy()
 		stemmedWord = stemmer.stem(q.lower())
 		invertedIdx = getInvertedIndex(stemmedWord)
-		postingListCache[stemmedWord] = invertedIdx
 		for k in ans[q].keys():
 			try:
 				ans[q][k] = getPostingList(stemmedWord, mapping[k], invertedIdx)
@@ -106,7 +104,6 @@ else:
 		ans[w] = emptyQuery.copy()
 		stemmedWord = stemmer.stem(w.lower())
 		invertedIdx = getInvertedIndex(stemmedWord)
-		postingListCache[stemmedWord] = invertedIdx
 		for q in queryFormatted[w]:
 			try:
 				ans[w][q] = getPostingList(stemmedWord, mapping[q], invertedIdx)
@@ -115,9 +112,9 @@ else:
 
 # weights for different fields
 weights = {
-	"title": 0.3,
-	"body": 0.25,
-	"infobox": 0.2,
+	"title": 0.4,
+	"body": 0.27,
+	"infobox": 0.22,
 	"categories": 0.1,
 	"references": 0.05,
 	"links": 0.05,
@@ -126,28 +123,32 @@ weights = {
 # stores score for all docs
 docScores = defaultdict(float)
 
-# adds score for word 'word' in field 'field'
-def addScore(word, field, postingList):
-	c = 0
-	for p in postingList:
-		if mapping[field] == 'f':
-			c += (int(p.split(mapping[field])[1]) > 0)
-		else:
-			c += (int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]) > 0)
+# Returns number of words in doc with doc ID = 'docId'
+def getNumWords(docId):
+	return int(lc.getline(invertedIdxPath + '/docFreq.txt', int(docId) + 1))
 
-	# Need to divide by something
+# adds score for word 'word' in field 'field'
+def addScore(field, postingList):
+	if len(postingList) == 0:
+		return
+
 	for p in postingList:
 		if mapping[field] == 'f':
-			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1])
+			# if p.startswith('6288079') or p.startswith('7818227'):
+			# 	print(w, field, p, (1 + math.log(21384756 / len(postingList))), int(p.split(mapping[field])[1]), getNumWords(p.split('a')[0]), math.sqrt(int(p.split(mapping[field])[1]) / getNumWords(p.split('a')[0])))
+			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / len(postingList))) * math.sqrt(int(p.split(mapping[field])[1]) / getNumWords(p.split('a')[0]))
 		else:
-			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0])
+			# if p.startswith('6288079') or p.startswith('7818227'):
+			# 	print(w, field, p, (1 + math.log(21384756 / len(postingList))), int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]), math.sqrt(getNumWords(p.split('a')[0]), int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]) / getNumWords(p.split('a')[0])))
+			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / len(postingList))) * math.sqrt(int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]) / getNumWords(p.split('a')[0]))
 
 for w in ans.keys():
 	for f in ans[w].keys():
-		addScore(w, f, ans[w][f])
+		addScore(f, ans[w][f])
 
 docsWithScores = [[k, v] for k, v in docScores.items()]
 docsWithScores = sorted(docsWithScores, key=lambda x: x[1], reverse=True)
+
 # get top 10 docs
 docsWithScores = docsWithScores[:10]
 
