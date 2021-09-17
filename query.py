@@ -40,7 +40,9 @@ def getPostingList(word, c, invertedIdx):
 	return listt
 
 # Files holding inverted index
-invertedIdxFiles = [ f for f in os.listdir(invertedIdxPath) if os.path.isfile(os.path.join(invertedIdxPath, f)) and f != 'titles.txt' and f.count('_') == 1]
+invertedIdxFiles = [ f for f in os.listdir(invertedIdxPath) if os.path.isfile(os.path.join(invertedIdxPath, f)) and f.count('_') == 1]
+# Files holding titles
+titleFiles = [ f for f in os.listdir(invertedIdxPath) if os.path.isfile(os.path.join(invertedIdxPath, f)) and f.count('_') == 2]
 
 # Returns inverted index filname having posting list for word 'w'
 def getInvIdxFileName(w):
@@ -122,7 +124,7 @@ weights = {
 }
 
 # stores score for all docs
-docWeights = defaultdict(float)
+docScores = defaultdict(float)
 
 # adds score for word 'word' in field 'field'
 def addScore(word, field, postingList):
@@ -136,27 +138,49 @@ def addScore(word, field, postingList):
 	# Need to divide by something
 	for p in postingList:
 		if mapping[field] == 'f':
-			docWeights[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1])
+			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1])
 		else:
-			docWeights[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0])
+			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / c)) * int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0])
 
-print(ans.keys())
 for w in ans.keys():
 	for f in ans[w].keys():
 		addScore(w, f, ans[w][f])
-	print(docWeights)
-	exit(0)
+
+docsWithScores = [[k, v] for k, v in docScores.items()]
+docsWithScores = sorted(docsWithScores, key=lambda x: x[1], reverse=True)
+# get top 10 docs
+docsWithScores = docsWithScores[:10]
+
+# Returns title filname having title for doc with doc ID = 'docId'
+def getTitleFileName(docId):
+	docId = int(docId)
+	for f in titleFiles:
+		lowerID = int(f.split('.')[0].split('_')[1])
+		upperID = int(f.split('.')[0].split('_')[2])
+		if docId >= lowerID and docId <= upperID:
+			return f
+	return ""
+
+# returns title for doc with doc ID = 'docId'
+def getTitle(docId):
+	fileName = getTitleFileName(docId)
+	f = open(invertedIdxPath + '/' + fileName)
+	for line in f:
+		if line.startswith(docId + '-'):
+			f.close()
+			return '-'.join(line.strip().split('-')[1:])
+	f.close()
+	return ""
+
+for i in range(len(docsWithScores)):
+	docsWithScores[i][1] = getTitle(docsWithScores[i][0])
 
 end = time.time()
 
-for k in ans.keys():
-	print(k, '---')
-	if len(ans[k]) == 0:
-		print("No documents found!\n")
-		continue
-	for idd in ans[k]:
-		print(str(idd) + '\n')
-		break
-		# print(str(idd) + ', ' + docIdTitleMap[idd] + '\n')
+if len(docsWithScores) == 0:
+	print("No docs found!")
+else:
+	for d in docsWithScores:
+		print(', '.join(d))
 
-print(end - start)
+print(end - start, '\n')
