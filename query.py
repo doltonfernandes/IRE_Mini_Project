@@ -28,16 +28,18 @@ for idx, i in enumerate(sorted(emptyQuery.keys())):
 # Returns posting list containing 'word' in field 'c'
 def getPostingList(word, c, invertedIdx):
 	listt = []
+	if c == 'a':
+		c = 'f'
+
 	if c == 'f':
 		for d in invertedIdx:
 			if int(d.split('f')[1]) > 0:
-				listt.append(d)
+				listt.append(d.split('a')[0] + '-' + d.split('f')[1])
 		return listt
 
 	for d in invertedIdx:
 		if int(d.split(c)[1].split(chr(ord(c) + 1))[0]) > 0:
-			listt.append(d)
-
+			listt.append(d.split('a')[0] + '-' + d.split(c)[1].split(chr(ord(c) + 1))[0])
 	return listt
 
 # Files holding inverted index
@@ -73,11 +75,12 @@ stemmer = PorterStemmer()
 if ':' not in query:
 	# If plain query
 	query = re.findall(r"[\w']{1,}", query)
+	query = [ q.lower() for q in query]
 	query = list(set(query))
 
 	for q in query:
 		ans[q] = emptyQuery.copy()
-		stemmedWord = stemmer.stem(q.lower())
+		stemmedWord = stemmer.stem(q)
 		invertedIdx = getInvertedIndex(stemmedWord)
 		for k in ans[q].keys():
 			try:
@@ -93,7 +96,7 @@ else:
 			if ':' in text:
 				text = text.split(':')[0][:-1]
 			text = re.findall(r"[\w']{1,}", text)
-			text = list(set(text))
+			text = list(set([ q.lower() for q in text]))
 			for w in text:
 				try:
 					queryFormatted[w].append(k)
@@ -102,7 +105,7 @@ else:
 
 	for w in queryFormatted.keys():
 		ans[w] = emptyQuery.copy()
-		stemmedWord = stemmer.stem(w.lower())
+		stemmedWord = stemmer.stem(w)
 		invertedIdx = getInvertedIndex(stemmedWord)
 		for q in queryFormatted[w]:
 			try:
@@ -132,15 +135,10 @@ def addScore(field, postingList):
 	if len(postingList) == 0:
 		return
 
+	tf = (1 + math.log(21384756 / len(postingList)))
 	for p in postingList:
-		if mapping[field] == 'f':
-			# if p.startswith('6288079') or p.startswith('7818227'):
-			# 	print(w, field, p, (1 + math.log(21384756 / len(postingList))), int(p.split(mapping[field])[1]), getNumWords(p.split('a')[0]), math.sqrt(int(p.split(mapping[field])[1]) / getNumWords(p.split('a')[0])))
-			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / len(postingList))) * math.sqrt(int(p.split(mapping[field])[1]) / getNumWords(p.split('a')[0]))
-		else:
-			# if p.startswith('6288079') or p.startswith('7818227'):
-			# 	print(w, field, p, (1 + math.log(21384756 / len(postingList))), int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]), math.sqrt(getNumWords(p.split('a')[0]), int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]) / getNumWords(p.split('a')[0])))
-			docScores[p.split('a')[0]] += weights[field] * (1 + math.log(21384756 / len(postingList))) * math.sqrt(int(p.split(mapping[field])[1].split(chr(ord(mapping[field]) + 1))[0]) / getNumWords(p.split('a')[0]))
+		splittedS = p.split('-')
+		docScores[splittedS[0]] += weights[field] * tf * math.sqrt(int(splittedS[1]) / getNumWords(splittedS[0]))
 
 for w in ans.keys():
 	for f in ans[w].keys():
@@ -151,6 +149,8 @@ docsWithScores = sorted(docsWithScores, key=lambda x: x[1], reverse=True)
 
 # get top 10 docs
 docsWithScores = docsWithScores[:10]
+
+end = time.time()
 
 # Returns title filname having title for doc with doc ID = 'docId'
 def getTitleFileName(docId):
@@ -175,8 +175,6 @@ def getTitle(docId):
 
 for i in range(len(docsWithScores)):
 	docsWithScores[i][1] = getTitle(docsWithScores[i][0])
-
-end = time.time()
 
 if len(docsWithScores) == 0:
 	print("No docs found!")
