@@ -179,7 +179,7 @@ def getTitleFileName(docId):
 # returns title for doc with doc ID = 'docId'
 def getTitle(docId):
 	fileName = getTitleFileName(docId)
-	return '-'.join(lc.getline(invertedIdxPath + '/' + fileName, int(docId) - int(fileName.split('_')[1]) + 1).split('-')[1:])
+	return '-'.join(lc.getline(invertedIdxPath + '/' + fileName, int(docId) - int(fileName.split('_')[1]) + 1).strip().split('-')[1:])
 
 end = time.time()
 
