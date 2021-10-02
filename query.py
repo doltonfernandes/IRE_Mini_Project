@@ -5,6 +5,7 @@ import time
 import math
 import pickle
 import linecache as lc
+from multiprocessing import Pool
 from nltk.stem import PorterStemmer
 from collections import defaultdict
 
@@ -29,7 +30,7 @@ for idx, i in enumerate(sorted(emptyQuery.keys())):
 	mapping[i] = chr(97 + idx)
 
 # Returns posting list containing 'word' in field 'c'
-def getPostingList(word, c, invertedIdx):
+def getPostingList(c, invertedIdx):
 	listt = []
 	if c == 'a':
 		c = 'f'
@@ -83,21 +84,35 @@ def getInvertedIndex(w):
 
 ans = {}
 stemmer = PorterStemmer()
+
+def _getPostingLists(w):
+	tmpQuery = emptyQuery.copy()
+	stemmedWord = stemmer.stem(w)
+	invertedIdx = getInvertedIndex(stemmedWord)
+	if Qtype == 2:
+		loopIt = queryFormatted[w]
+	else:
+		loopIt = tmpQuery.keys()
+	for q in loopIt:
+		try:
+			tmpQuery[q] = getPostingList(mapping[q], invertedIdx)
+		except:
+			tmpQuery[q] = []
+	return tmpQuery
+
 if ':' not in query:
 	# If plain query
 	query = re.findall(r"[\w']{1,}", query)
 	query = [ q.lower() for q in query]
 	query = list(set(query))
 
-	for q in query:
-		ans[q] = emptyQuery.copy()
-		stemmedWord = stemmer.stem(q)
-		invertedIdx = getInvertedIndex(stemmedWord)
-		for k in ans[q].keys():
-			try:
-				ans[q][k] = getPostingList(stemmedWord, mapping[k], invertedIdx)
-			except:
-				pass
+	Qtype = 1
+	with Pool(8) as p:
+		postingLists = list(p.imap(_getPostingLists, query))
+
+	for k, p in zip(query, postingLists):
+		ans[k] = p
+
 else:
 	# If field query
 	queryFormatted = {}
@@ -114,15 +129,12 @@ else:
 				except:
 					queryFormatted[w] = [k]
 
-	for w in queryFormatted.keys():
-		ans[w] = emptyQuery.copy()
-		stemmedWord = stemmer.stem(w)
-		invertedIdx = getInvertedIndex(stemmedWord)
-		for q in queryFormatted[w]:
-			try:
-				ans[w][q] = getPostingList(stemmedWord, mapping[q], invertedIdx)
-			except:
-				pass
+	Qtype = 2
+	with Pool(8) as p:
+		postingLists = list(p.imap(_getPostingLists, queryFormatted.keys()))
+
+	for k, p in zip(queryFormatted.keys(), postingLists):
+		ans[k] = p
 
 # weights for different fields
 weights = {
@@ -141,7 +153,7 @@ docScores = defaultdict(float)
 def getNumWords(docId):
 	return arr[int(docId)]
 
-# adds score for word 'word' in field 'field'
+# adds score for word in field 'field'
 def addScore(field, postingList):
 	if len(postingList) == 0:
 		return
