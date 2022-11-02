@@ -1,5 +1,7 @@
 # IRE Mini Project - Search Engine for Wikipedia
 
+A search engine for the entire Wikipedia corpus made as a minor project for the Information Retrieval and Extraction (IRE) course of the Monsoon 2021 semester at IIIT-H.
+
 #### Methodology
 
 * XML parsing using SAX parser
